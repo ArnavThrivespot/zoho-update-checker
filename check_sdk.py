@@ -1,18 +1,41 @@
 import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import requests
-from bs4 import BeautifulSoup
 
 # URLs to monitor
 SDK_URL = "https://live.zwidgets.com/js-sdk/1.5/ZohoEmbededAppSDK.min.js"
-DOCS_URL = "https://www.zohocrm.dev/explore/widgets/v1.5/jssdk"
 
 def send_alert(message):
-    """Send alert via Slack Webhook (or replace with Discord/Email API)."""
-    webhook_url = os.environ.get("SLACK_WEBHOOK_URL")
-    if webhook_url:
-        requests.post(webhook_url, json={"text": message})
-    else:
-        print(f"ALERT: {message}")
+    """Send alert via Email using SMTP."""
+    smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+    smtp_port = int(os.environ.get("SMTP_PORT", 587))
+    sender_email = os.environ.get("SENDER_EMAIL")
+    sender_password = os.environ.get("SENDER_PASSWORD")
+    recipient_email = os.environ.get("RECIPIENT_EMAIL")
+
+    if not all([sender_email, sender_password, recipient_email]):
+        print(f"EMAIL CONFIG MISSING. Alert text: {message}")
+        return
+
+    # Create Email Message
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = recipient_email
+    msg['Subject'] = "🚨 Zoho SDK Version Change Detected!"
+    
+    msg.attach(MIMEText(message, 'plain'))
+
+    try:
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()  # Secure connection
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, recipient_email, msg.as_string())
+        server.quit()
+        print("Email alert sent successfully!")
+    except Exception as e:
+        print(f"Failed to send email alert: {e}")
 
 def check_sdk_headers():
     """Checks HTTP HEAD request for CDN file modifications."""
@@ -21,7 +44,6 @@ def check_sdk_headers():
     last_modified = response.headers.get("Last-Modified")
     print(f"Current ETag: {etag}")
     print(f"Last Modified: {last_modified}")
-    # Compare against stored etag/last-modified value in your DB or repo state file
 
 def check_next_version():
     """Proactively checks if a higher version endpoint (e.g. 1.6 or 2.0) exists."""
@@ -30,7 +52,7 @@ def check_next_version():
         test_url = f"https://live.zwidgets.com/js-sdk/{version}/ZohoEmbededAppSDK.min.js"
         res = requests.head(test_url)
         if res.status_code == 200:
-            send_alert(f"🚨 New Zoho SDK Version Detected! Found active endpoint at: {test_url}")
+            send_alert(f"New Zoho SDK Version Detected!\n\nFound active endpoint at: {test_url}")
 
 if __name__ == "__main__":
     check_sdk_headers()

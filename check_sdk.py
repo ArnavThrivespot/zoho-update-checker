@@ -8,21 +8,25 @@ import requests
 SDK_URL = "https://live.zwidgets.com/js-sdk/1.5/ZohoEmbededAppSDK.min.js"
 
 def send_alert(message):
-    """Send alert via Email using SMTP."""
+    """Send alert via Email to multiple recipients using SMTP."""
     smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
     smtp_port = int(os.environ.get("SMTP_PORT", 587))
     sender_email = os.environ.get("SENDER_EMAIL")
     sender_password = os.environ.get("SENDER_PASSWORD")
-    recipient_email = os.environ.get("RECIPIENT_EMAIL")
+    
+    # Fetch raw recipients string and split by comma into a clean list
+    recipient_env = os.environ.get("RECIPIENT_EMAIL", "")
+    recipients = [email.strip() for email in recipient_env.split(",") if email.strip()]
 
-    if not all([sender_email, sender_password, recipient_email]):
-        print(f"EMAIL CONFIG MISSING. Alert text: {message}")
+    if not all([sender_email, sender_password, recipients]):
+        print(f"EMAIL CONFIG MISSING OR EMPTY RECIPIENTS. Alert text: {message}")
         return
 
     # Create Email Message
     msg = MIMEMultipart()
     msg['From'] = sender_email
-    msg['To'] = recipient_email
+    # Join list with commas for the 'To' header in the email client display
+    msg['To'] = ", ".join(recipients)
     msg['Subject'] = "🚨 Zoho SDK Version Change Detected!"
     
     msg.attach(MIMEText(message, 'plain'))
@@ -31,9 +35,11 @@ def send_alert(message):
         server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()  # Secure connection
         server.login(sender_email, sender_password)
-        server.sendmail(sender_email, recipient_email, msg.as_string())
+        
+        # Pass the list of recipients to sendmail
+        server.sendmail(sender_email, recipients, msg.as_string())
         server.quit()
-        print("Email alert sent successfully!")
+        print(f"Email alert sent successfully to {len(recipients)} recipient(s)!")
     except Exception as e:
         print(f"Failed to send email alert: {e}")
 

@@ -53,7 +53,7 @@ def check_sdk_headers():
 
 def check_next_version():
     """Proactively checks if a higher version endpoint (e.g. 1.6 or 2.0) exists."""
-    possible_versions = ["1.6", "1.7", "2.0"]
+    possible_versions = ["1.5","1.6", "1.7", "2.0"]
     for version in possible_versions:
         test_url = f"https://live.zwidgets.com/js-sdk/{version}/ZohoEmbededAppSDK.min.js"
         res = requests.head(test_url)
